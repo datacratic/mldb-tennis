@@ -28,8 +28,7 @@ def printTournaments():
         print "\t ", tournaments[tournament]["rounds"]
 
 def generate_stats_tables(tournaments,players):
-#    global print_history
-#    globalgl allHistory
+
     print "calling generate stats tables asdfasdf"
     dataDir = "data/"
     print "the data directory is " + dataDir
@@ -249,6 +248,54 @@ def load_dataset(dataset, thePlayer):
             dataset.record_row("game_" + str(num_lines), tuples)
 
     dataset.commit()
+
+"""
+    mldb.log("request details:")
+    mldb.log( "remainining   : " + remaining)
+    print "verb          : ", verb
+    print "resource      : ", resource
+    print "restParams    : ", restParams, "length : ", len(restParams)
+    print "payload       : ", payload
+    print "contentType   : ", contentType
+    print "contentLength : ", contentLength
+    print "headers       : ", headers
+    print "woohoo! The number of players is ", len(players)
+    print "the number of tournaments is ", len(tournaments)
+"""
+
+def requestHandler(mldb, remaining, verb, resource, restParams, payload, contentType, contentLength, headers):
+    playerNames = [];
+    for key in players :
+        playerNames.append(key);
+#        print "player: ", key
+
+
+    if remaining == "/players":
+        return playerNames
+    elif remaining == "/tournaments":
+        print "returning tournaments "
+        #mldb.log("returning tournaments")
+        return tournaments
+    else:
+#        print "another route: ", remaining
+        return "blah"
+"""
+    elif remaining == "/multiapply":
+        print "multi apply we want to call our classifier block after calculating the right features"
+        var result =  getAugmentedRestParams(restParams);
+        var cls = result[0];
+        var augmentedParams = result[1];
+        // we expect to have a list of 4 parameters : The Opponent, The tournament, The round of the
+        // tournament and the classifier. From that we construct a new set of parameters that we
+        // can use to call the classifier
+        // get the classifier
+        var res = mldb.perform("GET", "/v1/blocks/classifyBlock"+ cls +"/apply", augmentedParams, "{}");
+        print "explain block was called with result " , JSON.stringify(res));
+        return res;
+"""
+
+mldb.plugin.set_request_handler(requestHandler);
+
 
 
 def get_dataset(player):

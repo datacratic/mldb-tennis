@@ -191,11 +191,11 @@ def load_dataset(dataset, thePlayer):
                     #print "loser stats for ", loser, ":", not_fed_stats
                     opp_prob_win = float(not_fed_stats['numWins'])/float(not_fed_stats['numGames'])
                     #print "Prob win for ", loser, ":", opp_prob_win
-                    tuples.append(["OpponentProbWin",opp_prob_win,ts])
+                    tuples.append(["OpponentProbWin", str(opp_prob_win), ts])
                     tuples.append(["OpponentRank", not_fed_stats['rank'],ts])
                     if not_fed_stats['numGamesVsFed'] != 0:
                         opp_prob_win_vs_fed = float(not_fed_stats['numWinsVsFed'])/float(not_fed_stats['numGamesVsFed'])
-                        tuples.append(["OpponentProbWinVsFed",opp_prob_win_vs_fed,ts])
+                        tuples.append(["OpponentProbWinVsFed", str(opp_prob_win_vs_fed), ts])
 
             else:
                 #print "Federer is the loser - OMG! against ", winner
@@ -207,11 +207,11 @@ def load_dataset(dataset, thePlayer):
                     #print "winner stats for ", winner, ":", not_fed_stats
                     opp_prob_win = float(not_fed_stats['numWins'])/float(not_fed_stats['numGames'])
                     #print "Prob win for ", winner, ":", opp_prob_win
-                    tuples.append(["OpponentProbWin",opp_prob_win,ts])
+                    tuples.append(["OpponentProbWin", str(opp_prob_win), ts])
                     tuples.append(["OpponentRank", not_fed_stats['rank'],ts])
                     if not_fed_stats['numGamesVsFed'] != 0:
                         opp_prob_win_vs_fed = float(not_fed_stats['numWinsVsFed'])/float(not_fed_stats['numGamesVsFed'])
-                        tuples.append(["OpponentProbWinVsFed",opp_prob_win_vs_fed,ts])
+                        tuples.append(["OpponentProbWinVsFed", str(opp_prob_win_vs_fed), ts])
 
             # record a feature with the year so that we can train on the right subset
             #print "The year is ", ts.year
@@ -249,50 +249,86 @@ def load_dataset(dataset, thePlayer):
 
     dataset.commit()
 
-"""
-    mldb.log("request details:")
-    mldb.log( "remainining   : " + remaining)
-    print "verb          : ", verb
-    print "resource      : ", resource
-    print "restParams    : ", restParams, "length : ", len(restParams)
-    print "payload       : ", payload
-    print "contentType   : ", contentType
-    print "contentLength : ", contentLength
-    print "headers       : ", headers
-    print "woohoo! The number of players is ", len(players)
-    print "the number of tournaments is ", len(tournaments)
-"""
+
+def getAugmentedRestParams(mldb,restParams):
+    # validates the input and returns new parameters with which we can call the 
+    # classifier block
+    mldb.log("this is a test")
+    cls = ""
+    augmented_rest_params = []
+    if len(restParams) != 4:
+        raise Exception("Insufficient number of parameters")
+
+    mldb.log("we have the right number of parameters")
+    for param in restParams:
+        key = param[0]
+        value = param[1].strip()
+        mldb.log("key = " + key + " value = " + value)
+        if key == "Opponent":
+            mldb.log("Checking if know oppponent " + key)
+            opp_stats = players.get(value)
+            if opp_stats == None:            
+                raise Exception("Failed to find player " + value)
+            else:
+                mldb.log("We have info about player " + value + " stats :" + json.dumps(opp_stats))
+                opp_prob_win = float(opp_stats['numWins'])/float(opp_stats['numGames'])
+                opp_prob_win_vs_fed = float(opp_stats['numWinsVsFed'])/float(opp_stats['numGamesVsFed'])
+                augmented_rest_params.append(["OpponentProbWin", str(opp_prob_win)])
+                augmented_rest_params.append(["OpponentProbWinVsFed", str(opp_prob_win_vs_fed)])
+                augmented_rest_params.append(["OpponentRank", opp_stats['rank']])
+        elif key == "Tournament":
+            mldb.log("Checking if know tournament " + key)
+            tournament_stats = tournaments.get(value)
+            if tournament_stats == None:            
+                raise Exception("Failed to find tournament " + value)
+            else:
+                mldb.log("We have info about tournament " + value + " stats :" + json.dumps(tournament_stats))
+                augmented_rest_params.append(["Tournament", value])
+                augmented_rest_params.append(["Surface", tournament_stats['Surface']])
+                augmented_rest_params.append(["Court", tournament_stats['Court']])
+                augmented_rest_params.append(["Best of", tournament_stats['Best of']])
+                augmented_rest_params.append(["Series", tournament_stats['Series']])
+        elif key == "Round":
+            mldb.log("We have info about round " + value)
+            augmented_rest_params.append(["Round", value])
+        elif key == "Classifier":
+            cls = value
+        else:
+            raise Exception("Unknown key in rest parameters " + value)
+        print "the cls is ", cls
+
+    return (cls, augmented_rest_params)
 
 def requestHandler(mldb, remaining, verb, resource, restParams, payload, contentType, contentLength, headers):
+    mldb.log("request details:")
+    mldb.log( "remainining   : " + str(remaining))
+    mldb.log("verb          : " + str(verb))
+    mldb.log("resource      : " + str(resource))
+    mldb.log("restParams    : " +  str(restParams) +  "length : " + str(len(restParams)))
+    mldb.log("payload       : " + str(payload))
+    mldb.log("contentType   : " + str(contentType))
+    mldb.log("contentLength : " + str(contentLength))
+    mldb.log("headers       : " + json.dumps(headers))
+    mldb.log("woohoo! The number of players is " + str(len(players)))
+    mldb.log("the number of tournaments is " + str(len(tournaments)))
+
     playerNames = [];
     for key in players :
         playerNames.append(key);
-#        print "player: ", key
-
-
+#        mldb.log(player: ", key
+    
     if remaining == "/players":
         return playerNames
     elif remaining == "/tournaments":
-        print "returning tournaments "
-        #mldb.log("returning tournaments")
+        mldb.log("returning tournaments")
         return tournaments
-    else:
-#        print "another route: ", remaining
-        return "blah"
-"""
     elif remaining == "/multiapply":
-        print "multi apply we want to call our classifier block after calculating the right features"
-        var result =  getAugmentedRestParams(restParams);
-        var cls = result[0];
-        var augmentedParams = result[1];
-        // we expect to have a list of 4 parameters : The Opponent, The tournament, The round of the
-        // tournament and the classifier. From that we construct a new set of parameters that we
-        // can use to call the classifier
-        // get the classifier
-        var res = mldb.perform("GET", "/v1/blocks/classifyBlock"+ cls +"/apply", augmentedParams, "{}");
-        print "explain block was called with result " , JSON.stringify(res));
-        return res;
-"""
+        mldb.log("multi apply we want to call our classifier block after calculating the right features")
+        cls, augmented_params =  getAugmentedRestParams(mldb, restParams)
+        mldb.log("augmented_params:" + str(augmented_params))
+        res = mldb.perform("GET", "/v1/blocks/classifyBlock"+ cls +"/application", augmented_params, "{}")
+        mldb.log("the result of the applyBlock " + json.dumps(res))
+        return res
 
 mldb.plugin.set_request_handler(requestHandler);
 
@@ -332,7 +368,7 @@ trainingDataset = get_dataset(thePlayer)
 train_classifier = True
 if train_classifier:
     train_classifier_pipeline_config = {
-        "id":"trainClsPipeline",
+        "id":"federer_cls_train",
         "type":"classifier",
         "params":{
             "dataset":{"id":"tennis"},
@@ -370,7 +406,7 @@ if test_classifier:
     score_clause = "APPLY BLOCK " + "classifyBlockglz" + " WITH " + with_clause + " EXTRACT (score)"
     print "the score clause is " , score_clause
     test_classifier_pipeline_config = {
-        "id":"testClsPipeline",
+        "id":"federer_cls_test",
         "type":"accuracy",
         "params": {
             "dataset": {"id":"tennis"},

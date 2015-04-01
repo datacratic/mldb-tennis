@@ -192,7 +192,9 @@ $(function() {
             return;
 
 //        var url = "http://"+window.location.host+"/v1/blocks/classifyBlock"+cls+"/apply?"+formVals;
+        console.log("About to call multiapply");
         var theUrl = "http://" + window.location.host + "/v1/plugins/tennis/routes/multiapply?" + formVals;
+        console.log("the url is ", theUrl);
         $("#urlCalled").text(theUrl);
          $.ajax({
            url: theUrl,
@@ -201,6 +203,7 @@ $(function() {
            alert(jqXHR.status + textStatus);
            },
            success: function(data) {
+               console.log("About to print response", data.response);
                var theResponse = JSON.parse(data.response);
                console.log("got data!", theResponse);
                console.log("pins = ", theResponse.pins);
@@ -215,8 +218,8 @@ $(function() {
            });
         
         console.log("!!!selected item", $('#the-basics .typeahead').typeahead('val'));
-        var urlExpl = "http://"+window.location.host+"/v1/blocks/explainBlock"+cls+"/apply?"+formVals;
-        $("#urlCalledExpl").text(urlExpl);
+        //var urlExpl = "http://"+window.location.host+"/v1/blocks/explainBlock"+cls+"/apply?"+formVals;
+        //$("#urlCalledExpl").text(urlExpl);
         /*
           $.ajax({
           url: urlExpl,

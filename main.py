@@ -326,7 +326,8 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
         mldb.log("multi apply we want to call our classifier block after calculating the right features")
         cls, augmented_params =  getAugmentedRestParams(mldb, restParams)
         mldb.log("augmented_params:" + str(augmented_params))
-        res = mldb.perform("GET", "/v1/blocks/classifyBlock"+ cls +"/application", augmented_params, "{}")
+        mldb.log("the classifier to use is " + cls)
+        res = mldb.perform("GET", "/v1/blocks/probabilizer"+ cls +"/application", augmented_params, "{}")
         mldb.log("the result of the applyBlock " + json.dumps(res))
         return res
 
@@ -366,73 +367,136 @@ trainingDataset = get_dataset(thePlayer)
 # Create a classifier
 #
 train_classifier = True
-if train_classifier:
-    train_classifier_pipeline_config = {
-        "id":"federer_cls_train",
-        "type":"classifier",
-        "params":{
-            "dataset":{"id":"tennis"},
-            "algorithm":"glz",
-            "classifierUri":"federer.cls",
-            "where":"Year < 2014",
-            "select":"* EXCLUDING(label, W1,L1,W2,L2,W3,L3,W4,L4,W5,L5,Wsets, Lsets, WPts, LPts, Year, LRank, WRank, Location)",
-#                        "select":"* EXCLUDING label,W1",
-            "label":"label = 1",
-            "weight":"1.0"
-            }
-    }
-    # for now always delete it...later we will be more careful
-    del_res = mldb.perform("DELETE", "/v1/pipelines/federer_cls_train", [["sync","true"]], {})
-    print "the result of the pipeline delete", del_res
-    pipeline_output = mldb.perform("PUT","/v1/pipelines/federer_cls_train", [["sync","true"]], train_classifier_pipeline_config)
-    print "pipeline output:", pipeline_output
-    training_output = mldb.perform("PUT","/v1/pipelines/federer_cls_train/runs/1", [["sync","true"]], {"id":"1"})
-    print "training output:", training_output
+cls_algos = ["glz", "dt"]
+# clean up in case things are already created
+def delete_entity(entity):
+    mldb.log("Deleting entity< " + entity + ">")
+    res = mldb.perform("DELETE", entity, [["sync","true"]], {})
+    mldb.log("...with result : " +json.dumps(res))
 
-    block_config = {
-        "id" : "classifyBlockglz",
-        "type":"classifier.apply",
-        "params":{"classifierUri":"federer.cls"}
-        }
-    del_res = mldb.perform("DELETE", "/v1/blocks/classifyBlockglz", [["sync","true"]], {})
-    print "The result of the classifyBlockglz delete ", del_res
-    block_output = mldb.perform("PUT","/v1/blocks/classifyBlockglz", [["sync","true"]], block_config)
-    print "the block output ", block_output
+for cls_algo in cls_algos:
+    print "cleaning up algo ", cls_algo
+    delete_entity("/v1/pipelines/federer_cls_train_%s" % cls_algo)
+    delete_entity("/v1/blocks/classifyBlock%s" % cls_algo)
+    delete_entity("/v1/pipelines/federer_prob_train_%s" % cls_algo )
+    delete_entity("/v1/blocks/apply_probabilizer%s" % cls_algo)
+    delete_entity("/v1/blocks/probabilizer%s" % cls_algo)
+    print "clean up completed"
+
+if train_classifier:
+    for cls_algo in cls_algos:
+        train_classifier_pipeline_config = {
+            "id":"federer_cls_train_" + cls_algo,
+            "type":"classifier",
+            "params":{
+                "dataset":{"id":"tennis"},
+                "algorithm":cls_algo,
+                "classifierUri":"federer_%s.cls" % cls_algo,
+                "where":"Year < 2014 AND rowHash() != 1",
+                "select":"* EXCLUDING(label, W1,L1,W2,L2,W3,L3,W4,L4,W5,L5,Wsets, Lsets, WPts, LPts, Year, LRank, WRank, Location)",
+                #                        "select":"* EXCLUDING label,W1",
+                "label":"label = 1",
+                "weight":"1.0"
+                }
+            }
+        pipeline_output = mldb.perform("PUT","/v1/pipelines/federer_cls_train_" + cls_algo, [["sync","true"]], 
+                                       train_classifier_pipeline_config)
+        mldb.log("pipeline output:" +json.dumps(pipeline_output))
+        training_output = mldb.perform("PUT","/v1/pipelines/federer_cls_train_%s/runs/1" % cls_algo, [["sync","true"]], 
+                                       {})
+        mldb.log("training output:" + json.dumps(training_output))
+        
+        block_config = {
+            "id" : "classifyBlock" + cls_algo,
+            "type":"classifier.apply",
+            "params":{"classifierUri":"federer_%s.cls" % cls_algo}
+            }
+        block_output = mldb.perform("PUT","/v1/blocks/classifyBlock%s" % cls_algo, [["sync","true"]], block_config)
+        mldb.log("the block output " + json.dumps(block_output))
+        
+        with_clause = "(* EXCLUDING (label, W1, L1, W2, L2, W3, L3, W4, L4, W5, L5, Wsets, Lsets, WPts, LPts, Year, LRank, WRank, Location))"
+        score_clause = "APPLY BLOCK " + "classifyBlock" + cls_algo + " WITH " + with_clause + " EXTRACT (score)"
+    # Now add the probabilizer
+        train_probabilizer_pipeline_config = {
+            "id":"federer_prob_train_%s" % cls_algo,
+            "type":"probabilizer",
+            "params":{
+                "dataset":{"id":"tennis"},
+                "probabilizerUri":"probabilizer" + cls_algo +".json",
+                "where":"Year < 2014 AND rowHash() % 5 = 1",
+                "select":score_clause,
+                "label":"label = 1"
+                }
+            }
+        
+        print mldb.perform("PUT", "/v1/pipelines/federer_prob_train_%s" % cls_algo, 
+                           [["sync", "true"]], 
+                           train_probabilizer_pipeline_config)
+        
+        
+        train_probabilizer_result = mldb.perform("PUT", "/v1/pipelines/federer_prob_train_%s/runs/1" % cls_algo,
+                                                 [["sync", "true"]], 
+                                                 {})
+        
+        
+        probabilizer_block_config = {
+            "id":"probabilizer" + cls_algo,
+            "type":"serial",
+            "params":{
+                "steps":[
+                    {
+                        "id":"classifyBlock" + cls_algo
+                        },
+                    {
+                        "id":"apply_probabilizer" + cls_algo,
+                        "type":"probabilizer.apply",
+                        "params": {
+                            "probabilizerUri":"probabilizer" + cls_algo +".json"
+                            }
+                        }
+                    ]
+                }
+            }
+        
+        probabilizer_block_output = mldb.perform("PUT", "/v1/blocks/" +probabilizer_block_config["id"],
+                                                 [["sync", "true"]], 
+                                                 probabilizer_block_config)
+        mldb.log("The result of the probabilizer block config" +json.dumps(probabilizer_block_output))
+    
 
 test_classifier = True;
 if test_classifier:
-    with_clause = "(* EXCLUDING (label, W1, L1, W2, L2, W3, L3, W4, L4, W5, L5, Wsets, Lsets, WPts, LPts, Year, LRank, WRank, Location))"
-#    with_clause = "(* EXCLUDING (label,W1))"
-    score_clause = "APPLY BLOCK " + "classifyBlockglz" + " WITH " + with_clause + " EXTRACT (score)"
-    print "the score clause is " , score_clause
-    test_classifier_pipeline_config = {
-        "id":"federer_cls_test",
-        "type":"accuracy",
-        "params": {
-            "dataset": {"id":"tennis"},
-            "output" : {
-                "id":"cls_test_results",
-                "type":"mutable",
-                "address":"cls_test_results.beh.gz"
-            },
-            "where":"Year >= 2014",
-            "score": score_clause,
-            "label":"label = 1",
-            "weight":"1.0"
-         }
-        }
+    for cls_algo in cls_algos:
+        with_clause = "(* EXCLUDING (label, W1, L1, W2, L2, W3, L3, W4, L4, W5, L5, Wsets, Lsets, WPts, LPts, Year, LRank, WRank, Location))"
+    #    with_clause = "(* EXCLUDING (label,W1))"
+        print "the score clause is " , score_clause
+        test_classifier_pipeline_config = {
+            "id":"federer_cls_test_%s" % cls_algo,
+            "type":"accuracy",
+            "params": {
+                "dataset": {"id":"tennis"},
+                "output" : {
+                    "id":"cls_test_results_%s" % cls_algo,
+                    "type":"mutable",
+                    "address":"cls_test_results_%s.beh.gz" % cls_algo
+                    },
+                "where":"Year >= 2014",
+                "score": score_clause,
+                "label":"label = 1",
+                "weight":"1.0"
+                }
+            }
 
-    print "testing classifier"
-    del_res = mldb.perform("DELETE", "/v1/pipelines/federer_cls_test", [["sync","true"]], {})
-    print "The result of federer_cls_test delete ", del_res
-    pipeline_output = mldb.perform("PUT","/v1/pipelines/federer_cls_test", [["sync", "true"]],
+        mldb.log( "testing classifier")
+        delete_entity("/v1/pipelines/federer_cls_test_%s" % cls_algo)
+        pipeline_output = mldb.perform("PUT","/v1/pipelines/federer_cls_test_%s" % cls_algo, [["sync", "true"]],
                                    test_classifier_pipeline_config)
-    print "the test output ", pipeline_output
+        mldb.log(cls_algo + ": test config output " + json.dumps(pipeline_output))
 
-    del_res = mldb.perform("DELETE", "/v1/pipelines/federer_cls_test/runs/1", [["sync","true"]], {})
-    print "the result of the delete run is ", del_res
-    training_output = mldb.perform("PUT","/v1/pipelines/federer_cls_test/runs/1", [["sync", "true"]],
-                                   {"id":"1"})
-    print "the training output ", training_output
+        delete_entity("/v1/pipelines/federer_cls_test_%s/runs/1" % cls_algo)
+        training_output = mldb.perform("PUT","/v1/pipelines/federer_cls_test_%s/runs/1" % cls_algo, 
+                                       [["sync", "true"]],
+                                       {"id":"1"})
+        mldb.log(cls_algo + ":test training output " + json.dumps(training_output))
 
 mldb.plugin.serve_static_folder("/static","static")

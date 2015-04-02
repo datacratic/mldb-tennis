@@ -210,9 +210,9 @@ $(function() {
                for(var feature in theResponse) {
                    console.log("feature = ", feature);
                }
-               var score = parseFloat(theResponse.pins.score) * 100;
-               console.log("the score is ", score);
-           $('.progress-bar').css('width', score+'%').attr('aria-valuenow', score);
+               var prob = parseFloat(theResponse.pins.prob) * 100;
+               console.log("the probability is ", prob);
+           $('.progress-bar').css('width', score+'%').attr('aria-valuenow', prob);
            $('.progress-bar').text(score.toFixed(2)+"%");
            }
            });

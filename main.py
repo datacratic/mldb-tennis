@@ -46,7 +46,10 @@ def generate_stats_tables(tournaments,players):
         for line in csvFile:
             #print line
             nextLine = line.split(",")
-
+            # we seem to have some WTA stats in some of the files. Filter them
+            if nextLine[4] == '"SEC"':
+                mldb.log("!!!!!!Found WTA data in ATP files: " + line)
+                continue
             matchDate = int(datetime.strptime(nextLine[3][1:-1],'%m/%d/%Y').strftime('%s'))
 #           print "the date is ", matchDate, ":" , datetime.utcfromtimestamp(matchDate)
             tournament = nextLine[2][1:-1]
@@ -95,6 +98,18 @@ def generate_stats_tables(tournaments,players):
             loser = nextLine[10][1:-1]
             wrank = nextLine[11][1:-1]
             lrank = nextLine[12][1:-1]
+
+            try:
+                lrank = int(lrank)
+            except ValueError:
+                mldb.log("Failed to convert to int " + line + " : lrank<" + lrank + ">")
+                lrank = 0
+
+            try:
+                wrank = int(wrank)
+            except ValueError:
+                mldb.log("Failed to convert to int " + line + " : wrank<" + wrank + ">")
+                wrank = 0
             #update generate non-Federer related statistics
             if not loser in players:
 #               print "First time we see player ", loser
@@ -169,7 +184,9 @@ def load_dataset(dataset, thePlayer):
             tuples = []
             nextLine = line.split(",")
             #nextLine = map(lambda x: x.encode("utf-8"), nextLineOrig)
-
+            if nextLine[4] == '"SEC"':
+                mldb.log("!!!!!!Found WTA data in ATP files: " + line)
+                continue
             ts = datetime.strptime(nextLine[3][1:-1],'%m/%d/%Y')
             matchDateEpoch = (int)(ts.strftime('%s'))
             # Only process games involving Federer for now
@@ -191,11 +208,12 @@ def load_dataset(dataset, thePlayer):
                     #print "loser stats for ", loser, ":", not_fed_stats
                     opp_prob_win = float(not_fed_stats['numWins'])/float(not_fed_stats['numGames'])
                     #print "Prob win for ", loser, ":", opp_prob_win
-                    tuples.append(["OpponentProbWin", str(opp_prob_win), ts])
-                    tuples.append(["OpponentRank", not_fed_stats['rank'],ts])
+                    tuples.append(["OpponentProbWin", opp_prob_win, ts])
+                    if not_fed_stats['rank'] != 0:
+                        tuples.append(["OpponentRank", not_fed_stats['rank'], ts])
                     if not_fed_stats['numGamesVsFed'] != 0:
                         opp_prob_win_vs_fed = float(not_fed_stats['numWinsVsFed'])/float(not_fed_stats['numGamesVsFed'])
-                        tuples.append(["OpponentProbWinVsFed", str(opp_prob_win_vs_fed), ts])
+                        tuples.append(["OpponentProbWinVsFed", opp_prob_win_vs_fed, ts])
 
             else:
                 #print "Federer is the loser - OMG! against ", winner
@@ -207,11 +225,12 @@ def load_dataset(dataset, thePlayer):
                     #print "winner stats for ", winner, ":", not_fed_stats
                     opp_prob_win = float(not_fed_stats['numWins'])/float(not_fed_stats['numGames'])
                     #print "Prob win for ", winner, ":", opp_prob_win
-                    tuples.append(["OpponentProbWin", str(opp_prob_win), ts])
-                    tuples.append(["OpponentRank", not_fed_stats['rank'],ts])
+                    tuples.append(["OpponentProbWin", opp_prob_win, ts])
+                    if not_fed_stats['rank'] != 0:
+                        tuples.append(["OpponentRank", not_fed_stats['rank'],ts])
                     if not_fed_stats['numGamesVsFed'] != 0:
                         opp_prob_win_vs_fed = float(not_fed_stats['numWinsVsFed'])/float(not_fed_stats['numGamesVsFed'])
-                        tuples.append(["OpponentProbWinVsFed", str(opp_prob_win_vs_fed), ts])
+                        tuples.append(["OpponentProbWinVsFed", opp_prob_win_vs_fed, ts])
 
             # record a feature with the year so that we can train on the right subset
             #print "The year is ", ts.year
@@ -256,6 +275,7 @@ def getAugmentedRestParams(mldb,restParams):
     mldb.log("this is a test")
     cls = ""
     augmented_rest_params = []
+    augmented_rest_params.append(["encoding","json"])
     if len(restParams) != 4:
         raise Exception("Insufficient number of parameters")
 
@@ -275,7 +295,8 @@ def getAugmentedRestParams(mldb,restParams):
                 opp_prob_win_vs_fed = float(opp_stats['numWinsVsFed'])/float(opp_stats['numGamesVsFed'])
                 augmented_rest_params.append(["OpponentProbWin", str(opp_prob_win)])
                 augmented_rest_params.append(["OpponentProbWinVsFed", str(opp_prob_win_vs_fed)])
-                augmented_rest_params.append(["OpponentRank", opp_stats['rank']])
+                if opp_stats['rank'] != 0:
+                    augmented_rest_params.append(["OpponentRank", str(opp_stats['rank'])])
         elif key == "Tournament":
             mldb.log("Checking if know tournament " + key)
             tournament_stats = tournaments.get(value)
@@ -283,14 +304,14 @@ def getAugmentedRestParams(mldb,restParams):
                 raise Exception("Failed to find tournament " + value)
             else:
                 mldb.log("We have info about tournament " + value + " stats :" + json.dumps(tournament_stats))
-                augmented_rest_params.append(["Tournament", value])
-                augmented_rest_params.append(["Surface", tournament_stats['Surface']])
-                augmented_rest_params.append(["Court", tournament_stats['Court']])
-                augmented_rest_params.append(["Best of", tournament_stats['Best of']])
-                augmented_rest_params.append(["Series", tournament_stats['Series']])
+                augmented_rest_params.append(["Tournament", '"' + value + '"'])
+                augmented_rest_params.append(["Surface", '"' + tournament_stats['Surface'] + '"'])
+                augmented_rest_params.append(["Court", '"' + tournament_stats['Court'] + '"'])
+                augmented_rest_params.append(["Best of", '"' + tournament_stats['Best of'] + '"'])
+                augmented_rest_params.append(["Series", '"' + tournament_stats['Series'] + '"'])
         elif key == "Round":
             mldb.log("We have info about round " + value)
-            augmented_rest_params.append(["Round", value])
+            augmented_rest_params.append(["Round", '"' + value + '"'])
         elif key == "Classifier":
             cls = value
         else:
@@ -308,7 +329,7 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
     mldb.log("payload       : " + str(payload))
     mldb.log("contentType   : " + str(contentType))
     mldb.log("contentLength : " + str(contentLength))
-    mldb.log("headers       : " + json.dumps(headers))
+#    mldb.log("headers       : " + json.dumps(headers))
     mldb.log("woohoo! The number of players is " + str(len(players)))
     mldb.log("the number of tournaments is " + str(len(tournaments)))
 
@@ -328,7 +349,11 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
         mldb.log("augmented_params:" + str(augmented_params))
         mldb.log("the classifier to use is " + cls)
         res = mldb.perform("GET", "/v1/blocks/probabilizer"+ cls +"/application", augmented_params, "{}")
-        mldb.log("the result of the applyBlock " + json.dumps(res))
+        mldb.log("the result of the probabilizer " + json.dumps(res))
+
+        # now also want to call the explain block
+        expl_res = mldb.perform("GET", "/v1/blocks/explainBlock"+ cls +"/application", augmented_params, "{}")
+        mldb.log("Result of explain block : " + json.dumps(expl_res))
         return res
 
 mldb.plugin.set_request_handler(requestHandler);
@@ -359,7 +384,6 @@ print "The time is now: " + str(datetime.now())
 
 generate_stats_tables(tournaments, players)
 
-
 print "Generated stats tables....load dataset"
 trainingDataset = get_dataset(thePlayer)
 
@@ -377,6 +401,7 @@ def delete_entity(entity):
 for cls_algo in cls_algos:
     print "cleaning up algo ", cls_algo
     delete_entity("/v1/pipelines/federer_cls_train_%s" % cls_algo)
+    delete_entity("/v1/pipelines/federer_cls_prod_%s" % cls_algo)
     delete_entity("/v1/blocks/classifyBlock%s" % cls_algo)
     delete_entity("/v1/pipelines/federer_prob_train_%s" % cls_algo )
     delete_entity("/v1/blocks/apply_probabilizer%s" % cls_algo)
@@ -416,7 +441,7 @@ if train_classifier:
         
         with_clause = "(* EXCLUDING (label, W1, L1, W2, L2, W3, L3, W4, L4, W5, L5, Wsets, Lsets, WPts, LPts, Year, LRank, WRank, Location))"
         score_clause = "APPLY BLOCK " + "classifyBlock" + cls_algo + " WITH " + with_clause + " EXTRACT (score)"
-    # Now add the probabilizer
+        # Now add the probabilizer
         train_probabilizer_pipeline_config = {
             "id":"federer_prob_train_%s" % cls_algo,
             "type":"probabilizer",
@@ -462,9 +487,47 @@ if train_classifier:
                                                  [["sync", "true"]], 
                                                  probabilizer_block_config)
         mldb.log("The result of the probabilizer block config" +json.dumps(probabilizer_block_output))
-    
 
-test_classifier = True;
+        # add an explain block
+        expl_block_config = {
+            "id":"explainBlock" + cls_algo,
+            "type":"classifier.explain",
+            "params": {
+                "classifierUri":"federer_%s.cls" % cls_algo
+                }
+            }
+        delete_entity("/v1/blocks/explainBlock%s" % cls_algo)
+        explain_block_output = mldb.perform("PUT", "/v1/blocks/explainBlock%s" % cls_algo, [], expl_block_config)
+        mldb.log(cls_algo + ":result of the explain block " + json.dumps(explain_block_output))
+
+
+# Train a classifier with all the data for production
+train_prod_classifier = True
+if train_prod_classifier:
+    for cls_algo in cls_algos:
+        prod_classifier_pipeline_config = {
+            "id":"federer_cls_prod_" + cls_algo,
+            "type":"classifier",
+            "params":{
+                "dataset":{"id":"tennis"},
+                "algorithm":cls_algo,
+                "classifierUri":"federer_prod%s.cls" % cls_algo,
+                "where":"rowHash() != 1",
+                "select":"* EXCLUDING(label, W1,L1,W2,L2,W3,L3,W4,L4,W5,L5,Wsets, Lsets, WPts, LPts, Year, LRank, WRank, Location)",
+                #                        "select":"* EXCLUDING label,W1",
+                "label":"label = 1",
+                "weight":"1.0"
+                }
+            }
+        pipeline_prod_output = mldb.perform("PUT","/v1/pipelines/federer_cls_prod_" + cls_algo, [["sync","true"]], 
+                                            prod_classifier_pipeline_config)
+        mldb.log("!!! prod pipeline output:" +json.dumps(pipeline_output))
+        training_output = mldb.perform("PUT","/v1/pipelines/federer_cls_prod_%s/runs/1" % cls_algo, [["sync","true"]], 
+                                       {})
+        mldb.log("prod output:" + json.dumps(training_output))
+
+
+test_classifier = False;
 if test_classifier:
     for cls_algo in cls_algos:
         with_clause = "(* EXCLUDING (label, W1, L1, W2, L2, W3, L3, W4, L4, W5, L5, Wsets, Lsets, WPts, LPts, Year, LRank, WRank, Location))"

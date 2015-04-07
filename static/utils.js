@@ -212,8 +212,8 @@ $(function() {
                }
                var prob = parseFloat(theResponse.pins.prob) * 100;
                console.log("the probability is ", prob);
-           $('.progress-bar').css('width', score+'%').attr('aria-valuenow', prob);
-           $('.progress-bar').text(score.toFixed(2)+"%");
+           $('.progress-bar').css('width', prob+'%').attr('aria-valuenow', prob);
+           $('.progress-bar').text(prob.toFixed(2)+"%");
            }
            });
         

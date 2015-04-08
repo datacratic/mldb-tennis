@@ -348,15 +348,18 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
         cls, augmented_params =  getAugmentedRestParams(mldb, restParams)
         mldb.log("augmented_params:" + str(augmented_params))
         mldb.log("the classifier to use is " + cls)
-        res = mldb.perform("GET", "/v1/blocks/probabilizer"+ cls +"/application", augmented_params, "{}")
+        res = mldb.perform("GET", "/v1/blocks/probabilizer_prod"+ cls +"/application", augmented_params, "{}")
         mldb.log("the result of the probabilizer " + json.dumps(res))
 
         # now also want to call the explain block
-        expl_res = mldb.perform("GET", "/v1/blocks/explainBlock"+ cls +"/application", augmented_params, "{}")
+        expl_res = mldb.perform("GET", "/v1/blocks/explainBlockProd"+ cls +"/application", augmented_params, "{}")
         mldb.log("Result of explain block : " + json.dumps(expl_res))
-        return res
+        combined_results = {}
+        combined_results["results"] = [res, expl_res]
+        mldb.log("combined result : " + json.dumps(combined_results))
+        return combined_results
 
-mldb.plugin.set_request_handler(requestHandler);
+
 
 
 
@@ -383,7 +386,7 @@ print "@@@@Running the tennis plugin@@@@@"
 print "The time is now: " + str(datetime.now())
 
 generate_stats_tables(tournaments, players)
-
+mldb.plugin.set_request_handler(requestHandler)
 print "Generated stats tables....load dataset"
 trainingDataset = get_dataset(thePlayer)
 
@@ -391,11 +394,11 @@ trainingDataset = get_dataset(thePlayer)
 # Create a classifier
 #
 train_classifier = True
-cls_algos = ["glz", "dt"]
+cls_algos = ["glz", "dt","bbdt"]
 # clean up in case things are already created
 def delete_entity(entity):
     mldb.log("Deleting entity< " + entity + ">")
-    res = mldb.perform("DELETE", entity, [["sync","true"]], {})
+    res = mldb.perform("DELETE", entity, [], {})
     mldb.log("...with result : " +json.dumps(res))
 
 for cls_algo in cls_algos:
@@ -403,9 +406,13 @@ for cls_algo in cls_algos:
     delete_entity("/v1/pipelines/federer_cls_train_%s" % cls_algo)
     delete_entity("/v1/pipelines/federer_cls_prod_%s" % cls_algo)
     delete_entity("/v1/blocks/classifyBlock%s" % cls_algo)
+    delete_entity("/v1/blocks/classifyBlockProd%s" % cls_algo)
     delete_entity("/v1/pipelines/federer_prob_train_%s" % cls_algo )
+    delete_entity("/v1/pipelines/federer_prob_prod_%s" % cls_algo )
     delete_entity("/v1/blocks/apply_probabilizer%s" % cls_algo)
+    delete_entity("/v1/blocks/apply_probabilizer_prod%s" % cls_algo)
     delete_entity("/v1/blocks/probabilizer%s" % cls_algo)
+    delete_entity("/v1/blocks/probabilizer_prod%s" % cls_algo)
     print "clean up completed"
 
 if train_classifier:
@@ -424,10 +431,10 @@ if train_classifier:
                 "weight":"1.0"
                 }
             }
-        pipeline_output = mldb.perform("PUT","/v1/pipelines/federer_cls_train_" + cls_algo, [["sync","true"]], 
+        pipeline_output = mldb.perform("PUT","/v1/pipelines/federer_cls_train_" + cls_algo, [], 
                                        train_classifier_pipeline_config)
         mldb.log("pipeline output:" +json.dumps(pipeline_output))
-        training_output = mldb.perform("PUT","/v1/pipelines/federer_cls_train_%s/runs/1" % cls_algo, [["sync","true"]], 
+        training_output = mldb.perform("PUT","/v1/pipelines/federer_cls_train_%s/runs/1" % cls_algo, [], 
                                        {})
         mldb.log("training output:" + json.dumps(training_output))
         
@@ -436,7 +443,7 @@ if train_classifier:
             "type":"classifier.apply",
             "params":{"classifierUri":"federer_%s.cls" % cls_algo}
             }
-        block_output = mldb.perform("PUT","/v1/blocks/classifyBlock%s" % cls_algo, [["sync","true"]], block_config)
+        block_output = mldb.perform("PUT","/v1/blocks/classifyBlock%s" % cls_algo, [], block_config)
         mldb.log("the block output " + json.dumps(block_output))
         
         with_clause = "(* EXCLUDING (label, W1, L1, W2, L2, W3, L3, W4, L4, W5, L5, Wsets, Lsets, WPts, LPts, Year, LRank, WRank, Location))"
@@ -455,12 +462,12 @@ if train_classifier:
             }
         
         print mldb.perform("PUT", "/v1/pipelines/federer_prob_train_%s" % cls_algo, 
-                           [["sync", "true"]], 
+                           [], 
                            train_probabilizer_pipeline_config)
         
         
         train_probabilizer_result = mldb.perform("PUT", "/v1/pipelines/federer_prob_train_%s/runs/1" % cls_algo,
-                                                 [["sync", "true"]], 
+                                                 [], 
                                                  {})
         
         
@@ -484,7 +491,7 @@ if train_classifier:
             }
         
         probabilizer_block_output = mldb.perform("PUT", "/v1/blocks/" +probabilizer_block_config["id"],
-                                                 [["sync", "true"]], 
+                                                 [], 
                                                  probabilizer_block_config)
         mldb.log("The result of the probabilizer block config" +json.dumps(probabilizer_block_output))
 
@@ -519,12 +526,82 @@ if train_prod_classifier:
                 "weight":"1.0"
                 }
             }
-        pipeline_prod_output = mldb.perform("PUT","/v1/pipelines/federer_cls_prod_" + cls_algo, [["sync","true"]], 
+        pipeline_prod_output = mldb.perform("PUT","/v1/pipelines/federer_cls_prod_" + cls_algo, [], 
                                             prod_classifier_pipeline_config)
-        mldb.log("!!! prod pipeline output:" +json.dumps(pipeline_output))
-        training_output = mldb.perform("PUT","/v1/pipelines/federer_cls_prod_%s/runs/1" % cls_algo, [["sync","true"]], 
+        mldb.log("!!! prod pipeline output:" +json.dumps(pipeline_prod_output))
+        training_output = mldb.perform("PUT","/v1/pipelines/federer_cls_prod_%s/runs/1" % cls_algo, [], 
                                        {})
         mldb.log("prod output:" + json.dumps(training_output))
+
+        block_config_prod = {
+            "id" : "classifyBlockProd" + cls_algo,
+            "type":"classifier.apply",
+            "params":{"classifierUri":"federer_prod%s.cls" % cls_algo}
+            }
+        block_output_prod = mldb.perform("PUT","/v1/blocks/classifyBlockProd%s" % cls_algo, 
+                                         [], block_config_prod)
+        mldb.log("!!!!the prod block output " + json.dumps(block_output_prod))
+
+        with_clause = "(* EXCLUDING (label, W1, L1, W2, L2, W3, L3, W4, L4, W5, L5, Wsets, Lsets, WPts, LPts, Year, LRank, WRank, Location))"
+        score_clause = "APPLY BLOCK " + "classifyBlockProd" + cls_algo + " WITH " + with_clause + " EXTRACT (score)"
+        # Now add the probabilizer
+        prod_probabilizer_pipeline_config = {
+            "id":"federer_prob_prod_%s" % cls_algo,
+            "type":"probabilizer",
+            "params":{
+                "dataset":{"id":"tennis"},
+                "probabilizerUri":"probabilizer_prod" + cls_algo +".json",
+                "where":"rowHash() % 5 = 1",
+                "select":score_clause,
+                "label":"label = 1"
+                }
+            }
+        
+        print mldb.perform("PUT", "/v1/pipelines/federer_prob_prod_%s" % cls_algo, 
+                           [], 
+                           prod_probabilizer_pipeline_config)
+        
+        
+        prod_probabilizer_result = mldb.perform("PUT", "/v1/pipelines/federer_prob_prod_%s/runs/1" % cls_algo,
+                                                 [], 
+                                                 {})
+        
+        
+        probabilizer_prod_block_config = {
+            "id":"probabilizer_prod" + cls_algo,
+            "type":"serial",
+            "params":{
+                "steps":[
+                    {
+                        "id":"classifyBlockProd" + cls_algo
+                        },
+                    {
+                        "id":"apply_probabilizer_prod" + cls_algo,
+                        "type":"probabilizer.apply",
+                        "params": {
+                            "probabilizerUri":"probabilizer_prod" + cls_algo +".json"
+                            }
+                        }
+                    ]
+                }
+            }
+        
+        probabilizer_prod_block_output = mldb.perform("PUT", "/v1/blocks/" +probabilizer_prod_block_config["id"],
+                                                      [], 
+                                                      probabilizer_prod_block_config)
+        mldb.log("!!!(PROD)The result of the probabilizer block config" +json.dumps(probabilizer_prod_block_output))
+        # add an explain block
+        expl_prod_block_config = {
+            "id":"explainBlockProd" + cls_algo,
+            "type":"classifier.explain",
+            "params": {
+                "classifierUri":"federer_prod%s.cls" % cls_algo
+                }
+            }
+        delete_entity("/v1/blocks/explainBlockProd%s" % cls_algo)
+        explain_prod_block_output = mldb.perform("PUT", "/v1/blocks/explainBlockProd%s" % cls_algo, [], 
+                                            expl_prod_block_config)
+        mldb.log(cls_algo + ":result of the explain block(PROD)" + json.dumps(explain_prod_block_output))
 
 
 test_classifier = False;
@@ -552,13 +629,13 @@ if test_classifier:
 
         mldb.log( "testing classifier")
         delete_entity("/v1/pipelines/federer_cls_test_%s" % cls_algo)
-        pipeline_output = mldb.perform("PUT","/v1/pipelines/federer_cls_test_%s" % cls_algo, [["sync", "true"]],
+        pipeline_output = mldb.perform("PUT","/v1/pipelines/federer_cls_test_%s" % cls_algo, [],
                                    test_classifier_pipeline_config)
         mldb.log(cls_algo + ": test config output " + json.dumps(pipeline_output))
 
         delete_entity("/v1/pipelines/federer_cls_test_%s/runs/1" % cls_algo)
         training_output = mldb.perform("PUT","/v1/pipelines/federer_cls_test_%s/runs/1" % cls_algo, 
-                                       [["sync", "true"]],
+                                       [],
                                        {"id":"1"})
         mldb.log(cls_algo + ":test training output " + json.dumps(training_output))
 

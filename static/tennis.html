@@ -37,6 +37,7 @@
 	    <div id="the-basics" class="col-xs-6 col-md-4">
 	      <input id="inputOpponent" class="typeahead" name="Opponent" type="text" placeholder="Opponent">
 	    </div>
+	    <div class="col-xs-6 col-md-4" id="explainOpponent"><input readonly="readonly"></div>
 	</div>
         <div class="row">
             <div class="col-xs-6 col-md-4 control-label">Tournament</div>
@@ -48,23 +49,18 @@
 	<div class="row">
 	  <div class="col-xs-6 col-md-4 control-label">Round</div>
           <div class="col-xs-6 col-md-4">
-            <select class="form-control" name="Round" id="inputRound" placeholder="Wimbledon">
-	      <!--
-              <option value="Australian Open">Australian Open</option>
-              <option value="wimbledon">Wimbledon</option>
-              <option value="French Open">French Open</option>
-              <option value="Us Open">US Open</option>
-	      -->
+            <select class="form-control" name="Round" id="inputRound" placeholder="1st Round">
             </select> 
           </div>
+	  <div class="col-xs-6 col-md-4" id="explainRound"></div>
 	</div>
         <div class="row">
             <div class="col-xs-6 col-md-4 control-label">Classifier</div>
             <div class="col-xs-6 col-md-4">
                 <select class="form-control" id="inputCls" name="Classifier" placeholder="Classifier">
-                  <option value="glz">glz</option>
                   <option value="dt">decision tree</option>
-                  <option value="bbdt">bagged boosted decision tree (doesn't work)</option>
+                  <option value="glz">glz</option>
+                  <option value="bbdt">bagged boosted decision tree</option>
                 </select> 
             </div>
             <div class="col-xs-6 col-md-4"></div>

@@ -203,8 +203,8 @@ $(function() {
            alert(jqXHR.status + textStatus);
            },
            success: function(data) {
-               console.log("About to print response", data.response);
-               var theResponse = JSON.parse(data.response);
+               console.log("About to print response", data.results);
+               var theResponse = JSON.parse(data.results[0].response);
                console.log("got data!", theResponse);
                console.log("pins = ", theResponse.pins);
                for(var feature in theResponse) {
@@ -212,29 +212,38 @@ $(function() {
                }
                var prob = parseFloat(theResponse.pins.prob) * 100;
                console.log("the probability is ", prob);
-           $('.progress-bar').css('width', prob+'%').attr('aria-valuenow', prob);
-           $('.progress-bar').text(prob.toFixed(2)+"%");
+               var theExpl = JSON.parse(data.results[1].response);
+               var oppExpl="";
+               var tournamentExpl="";
+               var roundExpl="";
+               for(var feature in theExpl.pins) {
+                   console.log("expl feature = ", feature, " value = ", theExpl.pins[feature])
+                   if( feature == "expl:OpponentProbWin" || 
+                       feature == "expl:OpponentProbWinVsFed" || feature == "expl:OpponentRank")
+                   {
+                       oppExpl = oppExpl + "(" + feature.substr(5) + ":" + theExpl.pins[feature] + ")"
+                   }
+                   else if ( feature == "expl:Tournament" || feature == "expl:Surface" ||
+                             feature == "expl:Court" || feature == "expl:Best of" || 
+                             feature == "expl:Series")
+                   {
+                       tournamentExpl = tournamentExpl + "(" + feature.substr(5) + ":" + theExpl.pins[feature] + ")"
+                   }
+                   else if( feature == "expl:Round")
+                   {
+                       roundExpl = roundExpl + "(" + feature.substr(5) + ":" + theExpl.pins[feature] + ")"
+                   }
+               }
+               console.log("oppExpl:", oppExpl);
+               $("#explainOpponent").text(oppExpl);
+               $("#explainTournament").text(tournamentExpl);
+               $("#explainRound").text(roundExpl);
+               $('.progress-bar').css('width', prob+'%').attr('aria-valuenow', prob);
+               $('.progress-bar').text(prob.toFixed(2)+"%");
            }
            });
         
         console.log("!!!selected item", $('#the-basics .typeahead').typeahead('val'));
-        //var urlExpl = "http://"+window.location.host+"/v1/blocks/explainBlock"+cls+"/apply?"+formVals;
-        //$("#urlCalledExpl").text(urlExpl);
-        /*
-          $.ajax({
-          url: urlExpl,
-          dataType: "json",
-          error: function (jqXHR, textStatus, errorThrown) {
-          alert(jqXHR.status + textStatus);
-          },
-          success: function(data) {
-          for(var feature in data.pins) {
-          var sf = feature.split(":");
-          $('#explain'+sf[1]).text(data.pins[feature]);
-          }
-          }
-          });
-        */
     };
     
     // Update the prob is anything changes

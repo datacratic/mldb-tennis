@@ -29,8 +29,8 @@ def printTournaments():
 
 def generate_stats_tables(tournaments,players):
 
-    print "calling generate stats tables asdfasdf"
-    dataDir = "data/"
+    print "Generating stats tables...."
+    dataDir = mldb.plugin.get_plugin_dir() + "/data/"
     print "the data directory is " + dataDir
 
 #   year = 2000
@@ -158,7 +158,7 @@ def load_dataset(dataset, thePlayer):
 #    global get_player_stats
 #    global datetime
     print "Entering load_dataset...."
-    dataDir = "data/"
+    dataDir = mldb.plugin.get_plugin_dir() + "/data/"
     year = 2000
     num_lines = 0
 

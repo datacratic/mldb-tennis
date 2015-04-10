@@ -212,7 +212,9 @@ $(function() {
                }
                var prob = parseFloat(theResponse.pins.prob) * 100;
                console.log("the probability is ", prob);
+               console.log("expl:" , data.results[1].response);
                var theExpl = JSON.parse(data.results[1].response);
+               console.log("parsed explanation");
                var oppExpl="";
                var tournamentExpl="";
                var roundExpl="";

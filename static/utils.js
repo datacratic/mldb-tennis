@@ -159,7 +159,7 @@ $(function() {
         if ($.inArray(opp, allPlayers) == -1)
         {
             console.log("failed to find player ",opp);
-            alert("failed to find player " + opp);
+            //alert("failed to find player " + opp);
             return false;
         }
         else
@@ -171,7 +171,7 @@ $(function() {
         console.log("the tournament is ", tournament);  
         if ($.inArray(tournament, tournaments) == -1)
         {
-            alert("failed to find tournament " + tournament);
+            //alert("failed to find tournament " + tournament);
             return false
         }
         else
@@ -200,10 +200,11 @@ $(function() {
            url: theUrl,
            dataType: "json",
            error: function (jqXHR, textStatus, errorThrown) {
-           alert(jqXHR.status + textStatus);
+               console.log("error on calling multiapply");
+               alert(jqXHR.status + textStatus);
            },
            success: function(data) {
-               console.log("About to print response", data.results);
+               //console.log("About to print response", data.results);
                var theResponse = JSON.parse(data.results[0].response);
                console.log("got data!", theResponse);
                console.log("pins = ", theResponse.pins);

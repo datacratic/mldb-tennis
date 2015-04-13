@@ -6,6 +6,7 @@ import json
 
 tournaments = {}
 players ={}
+playerNames = []
 allHistory = {}
 trainingYear = 2014
 thePlayer = "Federer R."
@@ -134,6 +135,12 @@ def generate_stats_tables(tournaments,players):
                 players[winner]["numWinsVsFed"]+=1
                 players[winner]["numGamesVsFed"]+=1
 
+    for key in players :
+        if key != thePlayer:
+#            mldb.log("player: " + key)
+            playerNames.append(key);
+        else:
+            mldb.log("Not adding federer to the list of players!!!!!")
     #print_history(allHistory)
 
 
@@ -333,10 +340,6 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
     mldb.log("woohoo! The number of players is " + str(len(players)))
     mldb.log("the number of tournaments is " + str(len(tournaments)))
 
-    playerNames = [];
-    for key in players :
-        playerNames.append(key);
-#        mldb.log(player: ", key
     
     if remaining == "/players":
         return playerNames
@@ -358,9 +361,6 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
         combined_results["results"] = [res, expl_res]
         mldb.log("combined result : " + json.dumps(combined_results))
         return combined_results
-
-
-
 
 
 def get_dataset(player):

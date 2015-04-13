@@ -660,3 +660,4 @@ if test_classifier:
         mldb.log(cls_algo + ":test training output " + json.dumps(training_output))
 
 mldb.plugin.serve_static_folder("/static","static")
+mldb.plugin.serve_documentation_folder('doc')

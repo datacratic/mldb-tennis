@@ -7,6 +7,7 @@ import json
 tournaments = {}
 players ={}
 playerNames = []
+tournamentsToReturn = {} # we only return those masters level and grand slams for now
 allHistory = {}
 trainingYear = 2014
 thePlayer = "Federer R."
@@ -38,9 +39,13 @@ def generate_stats_tables(tournaments,players):
     numLines = 0
     prevDate = int(datetime.now().strftime('%s'))
     for year in range(2000,2015):
+        # we do not process 2007 because ATP data actually contains WTA matches
+        if year == 2007:
+            continue
         print "The year is :" + str(year)
         fileToProcess = dataDir + "ATP_" + str(year) + ".csv"
         print "The file to process is " + fileToProcess
+        
         csvFile = open(fileToProcess, 'r')
         firstLine = csvFile.readline()
         print "the first line is :" + firstLine
@@ -68,11 +73,21 @@ def generate_stats_tables(tournaments,players):
                 tournaments[tournament]["Court"] = court;
                 tournaments[tournament]["Best of"] = bestof;
                 tournaments[tournament]["Series"] = series;
+                if series == "Masters" or series == "Grand Slam":
+                    tournamentsToReturn[tournament] = {}
+                    tournamentsToReturn[tournament]["rounds"] = {round:True}
+                    tournamentsToReturn[tournament]["Surface"] = surface;
+                    tournamentsToReturn[tournament]["Court"] = court;
+                    tournamentsToReturn[tournament]["Best of"] = bestof;
+                    tournamentsToReturn[tournament]["Series"] = series;
+                    
             else:
                 # before adding a round make sure that it is not already there
                 if not round in tournaments[tournament]["rounds"]:
                     #print "Adding round ", round , " to tournament ", tournament
                     tournaments[tournament]["rounds"][round] = True
+                    if series == "Masters" or series == "Grand Slam":
+                        tournamentsToReturn[tournament]["rounds"][round] = True
 #           print "prev date = ", prevDate , " matchDate = ", matchDate
             if matchDate != prevDate:
                 #
@@ -95,8 +110,8 @@ def generate_stats_tables(tournaments,players):
                 allHistory[matchDate] = playerSnapshot
                 prevDate = matchDate
 
-            winner = nextLine[9][1:-1]
-            loser = nextLine[10][1:-1]
+            winner = nextLine[9][1:-1].rstrip()
+            loser = nextLine[10][1:-1].rstrip()
             wrank = nextLine[11][1:-1]
             lrank = nextLine[12][1:-1]
 
@@ -135,12 +150,14 @@ def generate_stats_tables(tournaments,players):
                 players[winner]["numWinsVsFed"]+=1
                 players[winner]["numGamesVsFed"]+=1
 
+    # we are only going to return players that were ranked in the top 30 at the end of 2014
+    
     for key in players :
-        if key != thePlayer:
-#            mldb.log("player: " + key)
+        if key != thePlayer and players[key]["rank"] <= 30 and players[key]["rank"] > 0 and players[key]["numGames"] > 10:
+            mldb.log("Player " + key + ":" + json.dumps(players[key]))
             playerNames.append(key);
-        else:
-            mldb.log("Not adding federer to the list of players!!!!!")
+
+    mldb.log("The number of players is " + str(len(playerNames)))        
     #print_history(allHistory)
 
 
@@ -170,6 +187,10 @@ def load_dataset(dataset, thePlayer):
     num_lines = 0
 
     for year in range(2000,2015):
+        # we do not process 2007 because ATP data actually contains WTA matches
+        if year == 2007:
+            continue
+
         fileToProcess = dataDir
         print "The year is :" + str(year)
         fileToProcess = dataDir + "ATP_" + str(year) + ".csv"
@@ -198,8 +219,8 @@ def load_dataset(dataset, thePlayer):
             matchDateEpoch = (int)(ts.strftime('%s'))
             # Only process games involving Federer for now
             label = thePlayer + "_wins?"
-            winner = nextLine[9][1:-1]
-            loser = nextLine[10][1:-1]
+            winner = nextLine[9][1:-1].rstrip()
+            loser = nextLine[10][1:-1].strip()
 
             # only process Federer
             if not ( winner == thePlayer or loser == thePlayer):
@@ -279,7 +300,6 @@ def load_dataset(dataset, thePlayer):
 def getAugmentedRestParams(mldb,restParams):
     # validates the input and returns new parameters with which we can call the 
     # classifier block
-    mldb.log("this is a test")
     cls = ""
     augmented_rest_params = []
     augmented_rest_params.append(["encoding","json"])
@@ -337,15 +357,15 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
     mldb.log("contentType   : " + str(contentType))
     mldb.log("contentLength : " + str(contentLength))
 #    mldb.log("headers       : " + json.dumps(headers))
-    mldb.log("woohoo! The number of players is " + str(len(players)))
-    mldb.log("the number of tournaments is " + str(len(tournaments)))
+    mldb.log("The number of players is " + str(len(playerNames)))
+    mldb.log("the number of tournaments is " + str(len(tournamentsToReturn)))
 
     
     if remaining == "/players":
         return playerNames
     elif remaining == "/tournaments":
         mldb.log("returning tournaments")
-        return tournaments
+        return tournamentsToReturn
     elif remaining == "/multiapply":
         mldb.log("multi apply we want to call our classifier block after calculating the right features")
         cls, augmented_params =  getAugmentedRestParams(mldb, restParams)

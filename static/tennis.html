@@ -13,6 +13,54 @@
     <script type="text/javascript">
     </script>
     </head>
+<style>
+.tt-input, 
+.tt-hint {
+    width: 396px;
+    height: 30px;
+    padding: 8px 12px;
+    font-size: 24px;
+    line-height: 30px;
+    border: 2px solid #ccc;
+    border-radius: 8px;
+    outline: none;
+}
+
+.tt-input {
+    box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075);
+}
+
+.tt-hint {
+    color: #999
+}
+
+.tt-dropdown-menu {
+    width: 422px;
+    margin-top: 12px;
+    padding: 8px 0;
+    background-color: #fff;
+    border: 1px solid #ccc;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    box-shadow: 0 5px 10px rgba(0,0,0,.2);
+}
+
+.tt-suggestion {
+    padding: 3px 20px;
+    font-size: 18px;
+    line-height: 24px;
+}
+
+.tt-suggestion.tt-cursor {
+    color: #fff;
+    background-color: #0097cf;
+
+}
+
+.tt-suggestion p {
+    margin: 0;
+}
+</style>
     <body>
  <div class="container">
         <div class="jumbotron">
@@ -37,14 +85,14 @@
 	    <div id="the-basics" class="col-xs-6 col-md-4">
 	      <input id="inputOpponent" class="typeahead" name="Opponent" type="text" placeholder="Opponent">
 	    </div>
-	    <div class="col-xs-6 col-md-4" id="explainOpponent"><input readonly="readonly"></div>
+	    <div class="col-xs-6 col-md-4" id="explainOpponent"></div>
 	</div>
         <div class="row">
             <div class="col-xs-6 col-md-4 control-label">Tournament</div>
 	    <div id="tournament-container" class="col-xs-6 col-md-4">
 	      <input id="inputTournament" class="typeahead" name="Tournament" type="text" placeholder="Tournament">
 	    </div>
-	    <div class="col-xs-6 col-md-4" id="explainTournament"><input readonly="readonly"></div>
+	    <div class="col-xs-6 col-md-4" id="explainTournament"></div>
         </div>
 	<div class="row">
 	  <div class="col-xs-6 col-md-4 control-label">Round</div>
@@ -52,7 +100,7 @@
             <select class="form-control" name="Round" id="inputRound" placeholder="1st Round">
             </select> 
           </div>
-	  <div class="col-xs-6 col-md-4" id="explainRound"><input readonly="readonly"></div>
+	  <div class="col-xs-6 col-md-4" id="explainRound"></div>
 	</div>
         <div class="row">
             <div class="col-xs-6 col-md-4 control-label">Classifier</div>

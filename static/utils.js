@@ -62,7 +62,7 @@ $(function() {
 
     var populateTournaments = function() {
         console.log("populate with list of tournaments ");
-        var tournamentsUrl = "http://" + window.location.host + "/v1/plugins/tennis/routes/tournaments";
+        var tournamentsUrl = "../tournaments";
         $("#tournamentsUrlCalled").text(tournamentsUrl);
         $.ajax({
             url: tournamentsUrl,
@@ -115,7 +115,7 @@ $(function() {
 
     var populatePlayers = function() {
         console.log("populate with list of players ");
-        var playersUrl = "http://" + window.location.host + "/v1/plugins/tennis/routes/players";
+        var playersUrl = "../players";
         $("#playersUrlCalled").text(playersUrl);
         $.ajax({
             url: playersUrl,
@@ -193,7 +193,7 @@ $(function() {
 
 //        var url = "http://"+window.location.host+"/v1/blocks/classifyBlock"+cls+"/apply?"+formVals;
         console.log("About to call multiapply");
-        var theUrl = "http://" + window.location.host + "/v1/plugins/tennis/routes/multiapply?" + formVals;
+        var theUrl = "../multiapply?" + formVals;
         console.log("the url is ", theUrl);
         $("#urlCalled").text(theUrl);
          $.ajax({

@@ -134,7 +134,7 @@ $(function() {
                     displayKey: 'value',
                     source: substringMatcher(allPlayers)
                 })
-                 .on('typeahead:autocompleted', function ($e, datum) {
+                 .on('change', function ($e, datum) {
                     console.log("auto completed");
                     console.log("<", datum.value, ">");
                     update();

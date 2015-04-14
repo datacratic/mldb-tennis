@@ -91,7 +91,10 @@ $(function() {
                     displayKey: 'value',
                     source: substringMatcher(tournaments)
                 })
-                 .on('change', function ($e, datum) {
+                 .on('typeahead:autocompleted', onAutocompleted)
+                 .on('typeahead:selected', onAutocompleted)
+
+                function onAutocompleted($e, datum) {
                     console.log("auto completed on tournaments");
                     console.log(datum,": value ", datum["value"]);
                     // get the rounds for this tournament
@@ -104,7 +107,7 @@ $(function() {
                         $('#inputRound').append(html);
                     }
                     update();
-                })
+                }
             }
         });
 
@@ -134,11 +137,14 @@ $(function() {
                     displayKey: 'value',
                     source: substringMatcher(allPlayers)
                 })
-                 .on('change', function ($e, datum) {
+                 .on('typeahead:autocompleted', onAutocompleted)
+                 .on('typeahead:selected', onAutocompleted)
+
+                function onAutocompleted($e, datum) {
                     console.log("auto completed");
                     console.log("<", datum.value, ">");
                     update();
-                })
+                }
 
             }
         });

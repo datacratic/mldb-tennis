@@ -389,7 +389,7 @@ def get_dataset(player):
     datasetConfig = {
         "type": "mutable",
         "id": "tennis",
-        "params": { "artifactUri": "tennis.beh.gz"}
+        "params": { "artifactUri": "file://tennis.beh.gz"}
     };
 
     mldb.log("Deleting data set....")
@@ -638,7 +638,7 @@ if test_classifier:
                 "output" : {
                     "id":"cls_test_results_%s" % cls_algo,
                     "type":"mutable",
-                    "params": { "artifactUri":"cls_test_results_%s.beh.gz" % cls_algo}
+                    "params": { "artifactUri":"file://cls_test_results_%s.beh.gz" % cls_algo}
                     },
                 "where":"Year >= 2014",
                 "score": score_clause,

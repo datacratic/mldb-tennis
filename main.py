@@ -153,8 +153,7 @@ def generate_stats_tables(tournaments,players):
     # we are only going to return players that were ranked in the top 30 at the end of 2014
     # and who have played at least one game versus Federer
     for key in players :
-        if key != thePlayer and players[key]["rank"] <= 30 and players[key]["rank"] > 0 
-        and players[key]["numGames"] > 10 and players[key]["numGamesVsFed"] > 0:
+        if key != thePlayer and players[key]["rank"] <= 30 and players[key]["rank"] > 0 and players[key]["numGames"] > 10 and players[key]["numGamesVsFed"] > 0:
             mldb.log("Player " + key + ":" + json.dumps(players[key]))
             playerNames.append(key);
 

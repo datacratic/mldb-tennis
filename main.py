@@ -297,12 +297,11 @@ def load_dataset(dataset, thePlayer):
     dataset.commit()
 
 
-def getAugmentedRestParams(mldb,restParams):
+def get_classifier_and_feature_vector(mldb,restParams):
     # validates the input and returns new parameters with which we can call the 
     # classifier block
     cls = ""
-    augmented_rest_params = []
-    augmented_rest_params.append(["encoding","json"])
+    feature_vector = {}
     if len(restParams) != 4:
         raise Exception("Insufficient number of parameters")
 
@@ -320,10 +319,10 @@ def getAugmentedRestParams(mldb,restParams):
                 mldb.log("We have info about player " + value + " stats :" + json.dumps(opp_stats))
                 opp_prob_win = float(opp_stats['numWins'])/float(opp_stats['numGames'])
                 opp_prob_win_vs_fed = float(opp_stats['numWinsVsFed'])/float(opp_stats['numGamesVsFed'])
-                augmented_rest_params.append(["OpponentProbWin", str(opp_prob_win)])
-                augmented_rest_params.append(["OpponentProbWinVsFed", str(opp_prob_win_vs_fed)])
+                feature_vector["OpponentProbWin"] = opp_prob_win
+                feature_vector["OpponentProbWinVsFed"] = opp_prob_win_vs_fed
                 if opp_stats['rank'] != 0:
-                    augmented_rest_params.append(["OpponentRank", str(opp_stats['rank'])])
+                    feature_vector["OpponentRank"] = opp_stats['rank']
         elif key == "Tournament":
             mldb.log("Checking if know tournament " + key)
             tournament_stats = tournaments.get(value)
@@ -331,21 +330,21 @@ def getAugmentedRestParams(mldb,restParams):
                 raise Exception("Failed to find tournament " + value)
             else:
                 mldb.log("We have info about tournament " + value + " stats :" + json.dumps(tournament_stats))
-                augmented_rest_params.append(["Tournament", '"' + value + '"'])
-                augmented_rest_params.append(["Surface", '"' + tournament_stats['Surface'] + '"'])
-                augmented_rest_params.append(["Court", '"' + tournament_stats['Court'] + '"'])
-                augmented_rest_params.append(["Best of", '"' + tournament_stats['Best of'] + '"'])
-                augmented_rest_params.append(["Series", '"' + tournament_stats['Series'] + '"'])
+                feature_vector["Tournament"] = value
+                feature_vector["Surface"] = tournament_stats['Surface']
+                feature_vector["Court"] = tournament_stats['Court']
+                feature_vector["Best of"] = tournament_stats['Best of']
+                feature_vector["Series"] = tournament_stats['Series']
         elif key == "Round":
             mldb.log("We have info about round " + value)
-            augmented_rest_params.append(["Round", '"' + value + '"'])
+            feature_vector["Round"] = value
         elif key == "Classifier":
             cls = value
         else:
             raise Exception("Unknown key in rest parameters " + value)
         print "the cls is ", cls
 
-    return (cls, augmented_rest_params)
+    return (cls, feature_vector)
 
 def requestHandler(mldb, remaining, verb, resource, restParams, payload, contentType, contentLength, headers):
     mldb.log("request details:")
@@ -368,18 +367,15 @@ def requestHandler(mldb, remaining, verb, resource, restParams, payload, content
         return tournamentsToReturn
     elif remaining == "/multiapply":
         mldb.log("multi apply we want to call our classifier block after calculating the right features")
-        cls, augmented_params =  getAugmentedRestParams(mldb, restParams)
-        mldb.log("augmented_params:" + str(augmented_params))
-        mldb.log("the classifier to use is " + cls)
-        res = mldb.perform("GET", "/v1/blocks/probabilizer_prod"+ cls +"/application", augmented_params, "{}")
-        mldb.log("the result of the probabilizer " + json.dumps(res))
+        cls, feature_vector =  get_classifier_and_feature_vector(mldb, restParams)
+        res = mldb.perform("GET", "/v1/blocks/probabilizer_prod"+ cls +"/application", 
+            [["input", feature_vector]], {})
 
         # now also want to call the explain block
-        expl_res = mldb.perform("GET", "/v1/blocks/explainBlockProd"+ cls +"/application", augmented_params, "{}")
-        mldb.log("Result of explain block : " + json.dumps(expl_res))
+        expl_res = mldb.perform("GET", "/v1/blocks/explainBlockProd"+ cls +"/application", 
+            [["input", feature_vector]], {})
         combined_results = {}
         combined_results["results"] = [res, expl_res]
-        mldb.log("combined result : " + json.dumps(combined_results))
         return combined_results
 
 
